@@ -54,30 +54,25 @@ dat.c2 <- droplevels(dat.c2[-which(dat.c2$condition=="filler"), ])
 # Journal of Memory and Language 59(4), 457-474.
 
 # aggregating data - across items
-stat <- droplevels( ddply(subset(dat.c2,condition!="OR+dem"), 
-                          .(bin, id, condition, language, memory), 
-                          summarize,
-                          aoi.t=sum(aoi.target),
-                          aoi.d=sum(aoi.distractor),
-                          aoi.m=sum(aoi.middle)) )
 
-# sum of looks to target
-stat$y <- stat$aoi.t
+stat <- dat.c2 %>%
+  filter(condition != 'OR+dem') %>%
+  droplevels() %>%
+  group_by(bin, id, condition, langauge, memory),
+  summarize(aoi.t = sum(aoi.target),
+            aoi.d = sum(aoi.distractor),
+            aoi.m = sum(aoi.middle))
 
-# sum of looks to all aoi's
-stat$N <- stat$aoi.t + stat$aoi.d + stat$aoi.m
-
-# empirical logit
-stat$elog <- log( (stat$y + .5) / (stat$N - stat$y + .5) )
-
-# weights
-stat$wts <- 1 / (stat$y+.5) + 1 / (stat$N - stat$y + .5)
-
-# time variable in seconds
-stat$sec <- stat$bin/1000
-
-# centering time variable: around 4000ms (based on Grand Mean plot -- see below)
-stat$sec.cent <- stat$sec - 4
+stat <- stat %>%
+  mutate(y = aoi.t,                 # sum of looks to target
+         N = aoi.t + aoi.d + aoi.m  # sum of looks to all aoi's
+         ) %>% 
+  mutate(elog = log( (y + .5) / (N - y + .5) ), # empirical logit
+         wts = 1 / (y+.5) + 1 / (N - y + .5),   # weights
+         sec = bin / 1000                       # time in seconds
+         ) %>%
+  mutate(sec.cent = sec - 4                     # centering time variable: around 4000ms (based on Grand Mean plot -- see below)
+         )
 
 # contrast for condition
 library(MASS)
