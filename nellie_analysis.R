@@ -20,18 +20,21 @@ rm(list=ls())
 # loading the data
 load("nellie_children.RData")
 
+library(dplyr)
+
 #----------------------------------------------------------------------------------------
 ## Excluding 3 children for whom we don't have scores on the standardized tests
-dat.c2 <- droplevels(dat.c[-which(dat.c$bueva==200), ])
+dat.c2 <- dat.c %>%
+  filter(bueva != 200) %>%
+  droplevels()
 
 #----------------------------------------------------------------------------------------
 ## Scores on standardized tests ##
 
-# language
-dat.c2$language <- (dat.c2$tsvk_3 + dat.c2$tsvk_5 + dat.c2$tsvk_6) / 3
-
-# memory
-dat.c2$memory <- (dat.c2$digit_fwrd + dat.c2$digit_bwrd) / 2
+dat.c2 <- dat.c2 %>%
+  mutate(langauge = (tsvk_3 + tsvk_5 + tsvk_6) / 3,   # language test
+         memory = (digit_fwrd + digit_bwrd) / 2       # memory test
+         )
 
 #----------------------------------------------------------------------------------------
 ## Dividing time into 50ms bins ## 
@@ -41,8 +44,9 @@ dat.c2$bin <- floor(dat.c2$ms/binsize)*binsize
 
 #----------------------------------------------------------------------------------------
 ## Excluding fillers ##
-
-dat.c2 <- droplevels(dat.c2[-which(dat.c2$condition=="filler"), ])
+dat.c2 <- dat.c2 %>%
+  filter(condition != 'filler') %>%
+  droplevels()
 
 ################################################################################################
 ### STATISTICS ###
@@ -119,8 +123,8 @@ levels(stat$mem.div) <- c("High","Low")
 # plotting
 library(ggplot2)
 
-plot <- ggplot(data=stat, geom="smooth", method=lm, formula=y~poly(x,2),
-               aes(x=time, y=round(ia), linetype=mem.div, color=mem.div)) + 
+ggplot(data=stat, geom="smooth", method=lm, formula=y~poly(x,2),
+       aes(x=time, y=round(ia), linetype=mem.div, color=mem.div)) + 
   
   ylab("Adjusted proportion of target looks") + ylim(-3,3) + 
   xlab("Time (sec.)") + theme_bw() + 
@@ -135,34 +139,26 @@ plot <- ggplot(data=stat, geom="smooth", method=lm, formula=y~poly(x,2),
   # line to mark the end of sentence
   geom_vline(aes(xintercept=4155/1000-3.95), size=1, linetype=2, col="black") +
   
-  # Bigger axis titles
-  theme(axis.title.x=element_text(size=26, angle=0),
-        axis.title.y=element_text(size=26, angle=90)) + 
-  
-  # Bigger text on axes
-  theme(axis.text.x=element_text(size=20, colour="black"),
-        axis.text.y=element_text(size=20, colour="black")) + 
-  
-  # Bigger legend
-  theme(legend.title=element_text(size=24),
-        legend.text=element_text(size=22)) + 
-  
-  # Legend position
-  theme(legend.justification=c(1,1), legend.position=c(1,1)) + 
-  
-  # Box around legend
-  theme(legend.background=element_rect(fill="transparent"),
-        legend.key.width = unit(2.5, "cm")) + 
-  
-  # Bigger text in facets
-  theme(strip.text.x = element_text(size=20, angle=0),
-        strip.text.y = element_text(size=20, angle=0)) + 
-  
-  # removing background grid
-  theme(panel.grid.major=element_blank(),panel.grid.minor=element_blank(),
-        panel.background=element_blank()) 
-
-plot
+  theme(
+    # Bigger axis titles  
+    axis.title.x=element_text(size=26, angle=0),
+    axis.title.y=element_text(size=26, angle=90),
+    # Bigger text on axes
+    axis.text.x=element_text(size=20, colour="black"),
+    # Bigger legend
+    legend.title=element_text(size=24),
+    legend.text=element_text(size=22), 
+    # Legend position
+    legend.justification=c(1,1), legend.position=c(1,1),
+    # Box around legend
+    legend.background=element_rect(fill="transparent"),
+    legend.key.width = unit(2.5, "cm"),
+    # Bigger text in facets
+    strip.text.x = element_text(size=20, angle=0),
+    strip.text.y = element_text(size=20, angle=0),
+    # removing background grid
+    panel.grid.major=element_blank(),panel.grid.minor=element_blank(),
+    panel.background=element_blank()) 
 
 #----------------------------------------------------------------------------------------
 ## Grand Mean plot ##
@@ -170,10 +166,12 @@ plot
 library(plyr)
 
 ##### STEP 1 #####
-agg1 <- ddply(subset(dat.c2,condition!="OR+dem"), # excluding irrelevant condition
-              .(bin), summarize,
-              PLT = mean(aoi.target) / (mean(aoi.target)+mean(aoi.middle)+mean(aoi.distractor)) )
+agg <- dat.c2 %>%
+  filter(condition != 'OR+dem') %>%  # excluding the irrelevant condition
+  group_by(bin) %>%
+  summarize(PLT = mean(aoi.target) + ( mean(aoi.target) + mean(aoi.middle) + mean(aoi.distractor) )
+            )
 
-plot(agg1$PLT ~ agg1$bin) 
+plot(agg$PLT ~ agg$bin) 
 # onset of increase of PLT across conditions: at 4000ms
 #----------------------------------------------------------------------------------------
